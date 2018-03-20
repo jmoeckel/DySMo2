@@ -34,51 +34,70 @@ from VSM import VSM
 
 
 # Functions
-def ExecPythonFile(fileName):
+def ExecPythonFile(fileName, model):
     file = open(fileName)
     content = file.read()
     code = compile(content, fileName, 'exec')
     exec(code)
 
+
 # Functions for config script
-
-
 def Solver(name):
     return PySimLib.FindSolver(name)
 
 
-func = VSM.simulate
+def main(cfgPath, clean=False):
 
-# Checks
-if(len(sys.argv) == 1):
-    print("Please provide a path to a variable-structure simulatiom description file as argument.")
-    print("Exiting...")
-    exit()
+    print(cfgPath)
 
-if(len(sys.argv) == 3):
-    if(sys.argv[2] == "clean"):
+    if clean:
         func = VSM.clean
     else:
-        print("You specified the following unknown argument:", sys.argv[2])
+        func = VSM.simulate
+
+    # paths
+    configPath = os.path.abspath(cfgPath)
+
+    # instantiate model
+    model = VSM(configPath)  # The global model instance
+
+    # execute config file
+    ExecPythonFile(cfgPath, model)
+
+    # run simulation
+    os.chdir(model.getPath())  # switch to model path
+    try:
+        func(model)
+    except ModeException as e:
+        print("ERROR: ", e)
+        print("See Log file for details.")
+
+    model.shutdown()
+
+
+if __name__ == '__main__':
+
+    # Usage, if running within developing environment
+    # sys.argv.append(r'[Your Path To Config]\config.py')
+
+    if len(sys.argv) == 1:
+        print("Please provide a path to a variable-structure simulatiom description file as argument.")
         print("Exiting...")
         exit()
 
+    elif len(sys.argv) == 2:
+        main(sys.argv[1])
 
-# paths
-configPath = os.path.abspath(sys.argv[1])
+    elif len(sys.argv) == 3:
 
-# instantiate model
-model = VSM(configPath)  # The global model instance
+        if sys.argv[2] == "clean":
+            main(sys.argv[1], True)
+        else:
+            print("You specified the following unknown argument: {}".format(sys.argv[2]))
+            print("Exiting...")
+            exit()
 
-# execute config file
-ExecPythonFile(sys.argv[1])
-
-# run simulation
-os.chdir(model.getPath())  # switch to model path
-try:
-    func(model)
-except ModeException as e:
-    print("ERROR: ", e)
-    print("See Log file for details.")
-
-model.shutdown()
+    else:
+        print("You specified {} arguments (while DySMo only considers maximal three)".format(len(sys.argv)))
+        print("Exiting...")
+        exit()
